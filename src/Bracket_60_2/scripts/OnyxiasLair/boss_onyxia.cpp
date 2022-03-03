@@ -107,14 +107,12 @@ static sOnyxMove OnyxiaMoveData[] =
 
 enum Yells
 {
-    // Say
     SAY_AGGRO                   = 0,
     SAY_KILL                    = 1,
     SAY_PHASE_2_TRANS           = 2,
     SAY_PHASE_3_TRANS           = 3,
-
-    // Emote
-    EMOTE_BREATH                = 4
+    EMOTE_BREATH                = 4,
+    SAY_EVADE                   = 5
 };
 
 class boss_onyxia_60_2 : public CreatureScript
@@ -197,6 +195,8 @@ public:
             instance->DoStopTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT); // just in case at reset some players already left the instance
             instance->DoStartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
             BossAI::EnterCombat(who);
+
+            me->SummonCreature(NPC_ONYXIAN_LAIR_GUARD, -167.837936f, -200.549332f, -66.343231f, 5.598287f, TEMPSUMMON_MANUAL_DESPAWN);
         }
 
         void DamageTaken(Unit*, uint32& damage, DamageEffectType, SpellSchoolMask) override
@@ -214,7 +214,14 @@ public:
 
         void JustSummoned(Creature* summon) override
         {
+            summons.Summon(summon);
+
             if (summon->GetEntry() != NPC_ONYXIAN_WHELP && summon->GetEntry() != NPC_ONYXIAN_LAIR_GUARD)
+            {
+                return;
+            }
+
+            if (summon->GetEntry() == NPC_ONYXIAN_LAIR_GUARD && Phase != PHASE_LANDED)
             {
                 return;
             }
@@ -224,8 +231,6 @@ public:
                 summon->AI()->AttackStart(target);
                 DoZoneInCombat(summon);
             }
-
-            summons.Summon(summon);
         }
 
         void MovementInform(uint32 type, uint32 id) override
@@ -297,9 +302,21 @@ public:
             }
         }
 
+        bool CheckInRoom()
+        {
+            if (me->GetDistance2d(me->GetHomePosition().GetPositionX(), me->GetHomePosition().GetPositionY()) > 95.0f)
+            {
+                Talk(SAY_EVADE);
+                EnterEvadeMode();
+                return false;
+            }
+
+            return true;
+        }
+
         void UpdateAI(uint32 diff) override
         {
-            if (!UpdateVictim())
+            if (!UpdateVictim() | !CheckInRoom())
             {
                 return;
             }
